@@ -6,3 +6,6 @@ Thumbs.db
 # test artifacts
 *.png
 scratchpad/
+
+# local-only design notes (host internals)
+PLAN.md
