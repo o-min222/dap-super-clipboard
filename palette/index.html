@@ -40,27 +40,21 @@
       #titlebar:hover .grip { color: var(--text); }
       #titlebar .title { font-weight: 600; }
       #titlebar #close { -webkit-app-region: no-drag; margin-left: auto; }
-      #toolbar { padding: 8px 10px 4px; }
-      #tabs {
-        display: flex;
-        gap: 6px;
-        padding: 2px 10px 8px;
-        overflow-x: auto;
+      #toolbar { padding: 8px 10px; }
+      /* 타입 뱃지 — 카드마다 링크/텍스트/이미지/파일을 색으로 구분 (탭 전환 없이 한 목록에서). */
+      .badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: 4px;
+        margin-right: 6px;
+        vertical-align: middle;
       }
-      #tabs::-webkit-scrollbar { height: 0; }
-      .tab {
-        flex: 0 0 auto;
-        background: var(--panel);
-        border: 1px solid var(--border);
-        color: var(--muted);
-        border-radius: 999px;
-        padding: 3px 10px;
-        font-size: 11px;
-        cursor: pointer;
-        white-space: nowrap;
-      }
-      .tab:hover { color: var(--text); }
-      .tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+      .badge-link { background: rgba(91, 141, 239, 0.22); color: #7aa2f7; }
+      .badge-text { background: rgba(154, 160, 168, 0.22); color: #b7bdc6; }
+      .badge-image { background: rgba(158, 206, 106, 0.22); color: #9ece6a; }
+      .badge-files { background: rgba(224, 175, 104, 0.22); color: #e0af68; }
       #search {
         width: 100%;
         background: var(--panel);
@@ -165,7 +159,6 @@
     <div id="toolbar">
       <input id="search" type="text" placeholder="검색…" autocomplete="off" />
     </div>
-    <div id="tabs"></div>
     <div id="list"></div>
     <footer>
       <span id="count">0개</span>
@@ -177,15 +170,12 @@
       const listEl = document.getElementById("list");
       const searchEl = document.getElementById("search");
       const countEl = document.getElementById("count");
-      const tabsEl = document.getElementById("tabs");
 
       let items = [];
       let filter = "";
-      let category = "all"; // 전체/텍스트/링크/이미지/파일
       let dragId = null; // 현재 드래그 중인 카드 id
 
-      const CATEGORY_LABELS = { all: "전체", text: "텍스트", link: "링크", image: "이미지", files: "파일" };
-      const CATEGORY_ORDER = ["all", "text", "link", "image", "files"];
+      const CATEGORY_LABELS = { text: "텍스트", link: "링크", image: "이미지", files: "파일" };
       const URL_RE = /^https?:\/\/\S+/i;
 
       // 링크는 텍스트 중에서도 별도 카테고리 — 내용이 URL로 시작하면 link.
@@ -238,33 +228,12 @@
       }
 
       function matches(it) {
-        if (category !== "all" && categoryOf(it) !== category) return false;
         if (!filter) return true;
         const hay = (it.preview || "") + " " + it.kind;
         return hay.toLowerCase().includes(filter);
       }
 
-      // 카테고리 탭(칩) — 항목이 있는 카테고리만 노출, 각 개수 표시.
-      function renderTabs() {
-        const counts = { all: items.length, text: 0, link: 0, image: 0, files: 0 };
-        for (const it of items) counts[categoryOf(it)]++;
-        if (category !== "all" && counts[category] === 0) category = "all"; // 비면 전체로 복귀
-        tabsEl.textContent = "";
-        for (const cat of CATEGORY_ORDER) {
-          if (cat !== "all" && counts[cat] === 0) continue;
-          const b = document.createElement("button");
-          b.className = "tab" + (category === cat ? " active" : "");
-          b.textContent = CATEGORY_LABELS[cat] + " " + counts[cat];
-          b.addEventListener("click", () => {
-            category = cat;
-            render();
-          });
-          tabsEl.appendChild(b);
-        }
-      }
-
       function render() {
-        renderTabs();
         const shown = items.filter(matches);
         countEl.textContent = items.length + "개";
         listEl.textContent = "";
@@ -360,8 +329,12 @@
 
           const meta = document.createElement("div");
           meta.className = "meta";
-          meta.textContent =
-            (it.kind === "image" ? "이미지 · " : isFiles ? "파일 · " : "") + timeAgo(it.createdAt);
+          const cat = categoryOf(it);
+          const badge = document.createElement("span");
+          badge.className = "badge badge-" + cat;
+          badge.textContent = CATEGORY_LABELS[cat];
+          meta.appendChild(badge);
+          meta.appendChild(document.createTextNode(timeAgo(it.createdAt)));
           body.appendChild(meta);
           card.appendChild(body);
 
