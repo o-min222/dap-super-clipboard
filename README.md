@@ -25,7 +25,7 @@ palette/index.html               # 팔레트 UI (sandbox, window.dapPalette 만 
 
 ## 설치 (개발)
 
-`<userData>/plugins/com.example.super_clipboard/` 에 이 폴더 내용을 배치한 뒤 DAP에서 활성화.
+`<userData>/plugins/io.github.o-min222.super_clipboard/` 에 이 폴더 내용을 배치한 뒤 DAP에서 활성화.
 클립보드 히스토리 캡처는 기본 OFF이므로 설정(`settings.json`의 `clipboardHistory: true`)에서 옵트인해야 한다.
 
 ## 권한
