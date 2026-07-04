@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Super Clipboard</title>
+    <style>
+      :root {
+        --bg: #1e1f22;
+        --panel: #2b2d31;
+        --panel-hover: #34363c;
+        --border: #3a3d44;
+        --text: #e6e7ea;
+        --muted: #9aa0a8;
+        --accent: #5b8def;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font: 13px/1.4 -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+        display: flex;
+        flex-direction: column;
+        user-select: none;
+      }
+      /* Draggable title bar — the ONLY drag region, so the window can be moved (incl. across
+         monitors). Previously the search box filled the header and left almost no draggable area. */
+      #titlebar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-bottom: 1px solid var(--border);
+        -webkit-app-region: drag;
+        cursor: grab;
+      }
+      #titlebar:active { cursor: grabbing; }
+      #titlebar .grip { display: inline-flex; color: var(--muted); }
+      #titlebar:hover .grip { color: var(--text); }
+      #titlebar .title { font-weight: 600; }
+      #titlebar #close { -webkit-app-region: no-drag; margin-left: auto; }
+      #toolbar { padding: 8px 10px 4px; }
+      #search {
+        width: 100%;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        padding: 6px 9px;
+        outline: none;
+      }
+      #search:focus { border-color: var(--accent); }
+      .icon-btn {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 13px;
+        padding: 4px 6px;
+        border-radius: 6px;
+      }
+      .icon-btn:hover { color: var(--text); background: var(--panel); }
+      #list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .card {
+        position: relative;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        cursor: pointer;
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        transition: background 0.12s, transform 0.06s;
+      }
+      .card:hover { background: var(--panel-hover); }
+      .card:active { transform: scale(0.99); }
+      .card.dragging { opacity: 0.4; }
+      .card.drop-before { box-shadow: 0 -2px 0 0 var(--accent); }
+      .card.drop-after { box-shadow: 0 2px 0 0 var(--accent); }
+      @keyframes pasteFlash { 0% { background: var(--accent); } 100% { background: var(--panel); } }
+      .card.flash { animation: pasteFlash 0.5s ease-out; }
+      .card .body { flex: 1; min-width: 0; }
+      .card .preview {
+        white-space: pre-wrap;
+        word-break: break-word;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .card img {
+        max-width: 100%;
+        max-height: 120px;
+        border-radius: 6px;
+        display: block;
+      }
+      .card .files { display: flex; gap: 8px; align-items: center; color: var(--muted); }
+      .card .files .preview { color: var(--text); }
+      .card[draggable="true"] .files { cursor: grab; }
+      .card .meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
+      .card .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        opacity: 0;
+        transition: opacity 0.12s;
+      }
+      .card:hover .actions { opacity: 1; }
+      .card.pinned .actions { opacity: 1; }
+      .card.pinned .pin { color: var(--accent); }
+      footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 10px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 11px;
+      }
+      footer button { -webkit-app-region: no-drag; }
+      .empty {
+        color: var(--muted);
+        text-align: center;
+        padding: 40px 16px;
+      }
+      #list::-webkit-scrollbar { width: 8px; }
+      #list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div id="titlebar" title="여기를 잡고 드래그하면 창을 옮길 수 있어요">
+      <span class="grip" aria-hidden="true"><svg viewBox="0 0 16 16" width="10" height="16" fill="currentColor"><circle cx="5" cy="4" r="1.3"/><circle cx="5" cy="8" r="1.3"/><circle cx="5" cy="12" r="1.3"/><circle cx="11" cy="4" r="1.3"/><circle cx="11" cy="8" r="1.3"/><circle cx="11" cy="12" r="1.3"/></svg></span>
+      <span class="title">클립보드</span>
+      <button class="icon-btn" id="close" title="닫기">✕</button>
+    </div>
+    <div id="toolbar">
+      <input id="search" type="text" placeholder="검색…" autocomplete="off" />
+    </div>
+    <div id="list"></div>
+    <footer>
+      <span id="count">0개</span>
+      <button class="icon-btn" id="clear">전체 지우기</button>
+    </footer>
+
+    <script>
+      const dap = window.dapPalette;
+      const listEl = document.getElementById("list");
+      const searchEl = document.getElementById("search");
+      const countEl = document.getElementById("count");
+
+      let items = [];
+      let filter = "";
+      let dragId = null; // 현재 드래그 중인 카드 id
+
+      // 직관적 아이콘 (SVG, 이모지 아님). currentColor로 테마 색을 따른다.
+      const ICON_PIN =
+        '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="15" x2="12" y2="22"/><path d="M9 2h6l-1 5 3 4H7l3-4-1-5z"/></svg>';
+      const ICON_TRASH =
+        '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>';
+      const ICON_FILE =
+        '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>';
+
+      function send(type, id) {
+        dap.postMessage(id === undefined ? { type } : { type, id });
+      }
+
+      function sendReorder() {
+        dap.postMessage({ type: "reorder", ids: items.map((it) => it.id) });
+      }
+
+      /** dragId 카드를 targetId 앞/뒤로 옮기고 재렌더 + 순서 저장. */
+      function moveCard(targetId, after) {
+        if (!dragId || dragId === targetId) return;
+        const from = items.findIndex((it) => it.id === dragId);
+        if (from < 0) return;
+        const [moved] = items.splice(from, 1);
+        let to = items.findIndex((it) => it.id === targetId);
+        if (to < 0) {
+          items.splice(from, 0, moved);
+          return;
+        }
+        if (after) to += 1;
+        items.splice(to, 0, moved);
+        render();
+        sendReorder();
+      }
+
+      function timeAgo(ts) {
+        const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+        if (s < 60) return "방금";
+        if (s < 3600) return Math.floor(s / 60) + "분 전";
+        if (s < 86400) return Math.floor(s / 3600) + "시간 전";
+        return Math.floor(s / 86400) + "일 전";
+      }
+
+      function matches(it) {
+        if (!filter) return true;
+        const hay = (it.preview || "") + " " + it.kind;
+        return hay.toLowerCase().includes(filter);
+      }
+
+      function render() {
+        const shown = items.filter(matches);
+        countEl.textContent = items.length + "개";
+        listEl.textContent = "";
+
+        if (shown.length === 0) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = items.length === 0 ? "복사한 항목이 여기에 모여요." : "검색 결과가 없어요.";
+          listEl.appendChild(empty);
+          return;
+        }
+
+        // 순서 재배치 드래그는 검색 필터가 없을 때만 (필터 상태에선 부분집합이라 순서 왜곡 방지).
+        const canReorder = !filter;
+
+        for (const it of shown) {
+          const card = document.createElement("div");
+          card.className = "card" + (it.pinned ? " pinned" : "");
+          card.dataset.id = it.id;
+          const isFiles = it.kind === "files" && Array.isArray(it.files) && it.files.length > 0;
+          card.title = isFiles
+            ? "드래그해서 파일 내보내기"
+            : "클릭하면 붙여넣기 (창은 열린 채로 유지)";
+          if (!isFiles) card.addEventListener("click", () => send("paste", it.id));
+
+          // files 카드: 드래그 = 파일 내보내기(startDragFiles → 네이티브 파일 드래그).
+          // 그 외 카드: 드래그 = 팔레트 내부 순서 재배치. (텍스트 외부 드래그아웃은 Electron 제약상 불가.)
+          card.draggable = isFiles || canReorder;
+          card.addEventListener("dragstart", (e) => {
+            if (isFiles) {
+              e.preventDefault();
+              if (dap.startDragFiles) dap.startDragFiles(it.files);
+              return;
+            }
+            dragId = it.id;
+            e.dataTransfer.effectAllowed = "move";
+            card.classList.add("dragging");
+          });
+          card.addEventListener("dragend", () => {
+            dragId = null;
+            for (const el of listEl.querySelectorAll(".card"))
+              el.classList.remove("dragging", "drop-before", "drop-after");
+          });
+          card.addEventListener("dragover", (e) => {
+            if (!canReorder || !dragId || dragId === it.id) return;
+            e.preventDefault();
+            const r = card.getBoundingClientRect();
+            const after = e.clientY > r.top + r.height / 2;
+            card.classList.toggle("drop-after", after);
+            card.classList.toggle("drop-before", !after);
+          });
+          card.addEventListener("dragleave", () => card.classList.remove("drop-before", "drop-after"));
+          card.addEventListener("drop", (e) => {
+            if (!canReorder) return;
+            e.preventDefault();
+            const after = card.classList.contains("drop-after");
+            card.classList.remove("drop-before", "drop-after");
+            moveCard(it.id, after);
+          });
+
+          const body = document.createElement("div");
+          body.className = "body";
+
+          if (it.kind === "image" && it.imageUrl) {
+            const img = document.createElement("img");
+            img.src = it.imageUrl;
+            img.alt = "이미지";
+            img.draggable = true;
+            // 이미지를 채팅/에디터/탐색기로 드래그아웃 — 기본 웹 드래그를 막고 DAP의 네이티브
+            // 파일 드래그(webContents.startDrag)로 대체. dragdrop.export 권한이 있어야 동작.
+            img.addEventListener("dragstart", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (dap.startDragExport) dap.startDragExport(it.imageUrl);
+            });
+            img.title = "드래그해서 다른 앱에 넣기";
+            body.appendChild(img);
+          } else if (isFiles) {
+            const row = document.createElement("div");
+            row.className = "files";
+            row.innerHTML = ICON_FILE;
+            const p = document.createElement("span");
+            p.className = "preview";
+            p.textContent = it.preview || (it.files.length + "개 파일");
+            row.appendChild(p);
+            body.appendChild(row);
+          } else {
+            const p = document.createElement("div");
+            p.className = "preview";
+            p.textContent = it.preview || "";
+            body.appendChild(p);
+          }
+
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent =
+            (it.kind === "image" ? "이미지 · " : isFiles ? "파일 · " : "") + timeAgo(it.createdAt);
+          body.appendChild(meta);
+          card.appendChild(body);
+
+          const actions = document.createElement("div");
+          actions.className = "actions";
+
+          const pin = document.createElement("button");
+          pin.className = "icon-btn pin";
+          pin.innerHTML = ICON_PIN;
+          pin.title = it.pinned ? "고정 해제" : "위에 고정";
+          pin.addEventListener("click", (e) => {
+            e.stopPropagation();
+            send(it.pinned ? "unpin" : "pin", it.id);
+          });
+
+          const del = document.createElement("button");
+          del.className = "icon-btn";
+          del.innerHTML = ICON_TRASH;
+          del.title = "삭제";
+          del.addEventListener("click", (e) => {
+            e.stopPropagation();
+            send("delete", it.id);
+          });
+
+          actions.appendChild(pin);
+          actions.appendChild(del);
+          card.appendChild(actions);
+          listEl.appendChild(card);
+        }
+      }
+
+      searchEl.addEventListener("input", () => {
+        filter = searchEl.value.trim().toLowerCase();
+        render();
+      });
+      document.getElementById("close").addEventListener("click", () => dap.close());
+      document.getElementById("clear").addEventListener("click", () => {
+        if (items.length) send("clearAll");
+      });
+
+      dap.onMessage((msg) => {
+        if (!msg) return;
+        if (msg.type === "items") {
+          items = Array.isArray(msg.items) ? msg.items : [];
+          render();
+        } else if (msg.type === "pasted") {
+          const el = listEl.querySelector('.card[data-id="' + (msg.id || "").replace(/"/g, '\\"') + '"]');
+          if (el) {
+            el.classList.remove("flash");
+            void el.offsetWidth; // restart animation
+            el.classList.add("flash");
+          }
+        }
+      });
+
+      // 로드 완료 → main이 항목을 밀어준다.
+      send("ready");
+      searchEl.focus();
+    </script>
+  </body>
+</html>

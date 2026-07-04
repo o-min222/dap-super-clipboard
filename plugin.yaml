@@ -1,0 +1,16 @@
+id: com.example.super_clipboard
+name: Super Clipboard
+version: 0.1.0
+manifest_version: 2
+entry: dap_super_clipboard.plugin:activate
+author: dudal
+description: 복사한 텍스트·이미지를 팔레트에 모아 클릭으로 붙여넣는 슈퍼 클립보드.
+surface: user
+permissions:
+  - clipboard.history      # 클립보드 히스토리 읽기 (민감 — 사용자 옵트인 필요)
+  - storage.private        # 핀/blob 캐시 저장
+  - window.palette         # 팔레트 창
+  - input.synthesize       # 텍스트 붙여넣기(Ctrl+V 합성)
+  - dragdrop.export        # 이미지를 외부 앱으로 드래그아웃
+execution_modes:
+  - user
