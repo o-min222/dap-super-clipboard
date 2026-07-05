@@ -194,11 +194,21 @@ export function activate(ctx) {
     icon: "assets/clip.svg", // 플러그인 dir 기준 경로 — 호스트가 읽어 data URL로 래디얼에 표시
   });
 
-  // 트리거 2: 전역 단축키(클립보드 매니저 표준). ctx.host.hotkey는 레거시(ungated)라 항상 존재.
-  const HOTKEY = "CommandOrControl+Shift+V";
-  const hotkey = ctx.host.hotkey;
-  if (hotkey && typeof hotkey.register === "function") {
-    hotkey.register(HOTKEY, () => togglePalette());
+  // 트리거 2: 전역 단축키 — 호스트 정식 shortcut 기여 API로 등록한다.
+  // 레거시 ctx.host.hotkey.register(globalShortcut 직행)는 코어 hotkey 재등록 때
+  // globalShortcut.unregisterAll()에 함께 쓸려 사라지고 복구되지 않는다. 정식 경로(shortcutStore)는
+  // pluginShortcuts.reregister()로 같이 재등록되고, 설정에서 리바인딩도 된다.
+  // modifiers 비트마스크: Alt=1 / Control=2 / Shift=4. vk: 'V'=86.
+  // mac에서는 Control 기반(⌃⇧V) — 이 API엔 Command 비트가 없다(원하면 설정에서 변경).
+  const MOD_CONTROL = 2, MOD_SHIFT = 4;
+  if (ctx.shortcuts && typeof ctx.shortcuts.registerShortcut === "function") {
+    ctx.shortcuts.registerShortcut({
+      actionKey: "togglePalette",
+      title: "슈퍼 클립보드 열기/닫기",
+      defaultModifiers: MOD_CONTROL | MOD_SHIFT,
+      defaultVk: 86, // 'V'
+      actionId: "togglePalette",
+    });
   }
 
   // 히스토리 변화(복사/삭제) 시 열린 팔레트를 갱신.
@@ -206,10 +216,9 @@ export function activate(ctx) {
     void pushItems();
   });
 
-  // cleanup — registration(actions/radial)은 ctx가 자동 dispose. 창/구독/단축키만 정리.
+  // cleanup — registration(actions/radial/shortcut)은 ctx가 자동 dispose. 창/구독만 정리.
   return () => {
     if (typeof disposeChanged === "function") disposeChanged();
-    if (hotkey && typeof hotkey.unregister === "function") hotkey.unregister(HOTKEY);
     closePalette();
     blobCache.clear();
   };
