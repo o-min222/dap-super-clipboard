@@ -187,7 +187,12 @@ export function activate(ctx) {
 
   // 트리거 1: 펫 래디얼 메뉴 → togglePalette 액션.
   ctx.actions.registerAction({ id: "togglePalette", callback: () => togglePalette() });
-  ctx.radialMenu.addItem({ itemId: "palette", label: "클립보드", actionId: "togglePalette" });
+  ctx.radialMenu.addItem({
+    itemId: "palette",
+    label: "클립보드",
+    actionId: "togglePalette",
+    icon: "assets/clip.svg", // 플러그인 dir 기준 경로 — 호스트가 읽어 data URL로 래디얼에 표시
+  });
 
   // 트리거 2: 전역 단축키(클립보드 매니저 표준). ctx.host.hotkey는 레거시(ungated)라 항상 존재.
   const HOTKEY = "CommandOrControl+Shift+V";
