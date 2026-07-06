@@ -111,7 +111,7 @@ export function activate(ctx) {
 
   function openPalette() {
     // open() 시점에 "직전 포커스 앱"이 paste 타깃으로 캡처된다 → 토글마다 재오픈해야 정확.
-    handle = windows.openPalette({ page: "palette/index.html", width: 360, height: 520 });
+    handle = windows.openPalette({ page: "palette/index.html", width: 360, height: 520, closeOnPetDrop: true });
     handle.onMessage(onPaletteMessage);
   }
 
