@@ -5,6 +5,7 @@ Thumbs.db
 
 # test artifacts
 *.png
+!assets/icon.png
 scratchpad/
 
 # local-only design notes (host internals)

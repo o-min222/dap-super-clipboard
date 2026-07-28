@@ -1,5 +1,9 @@
 # Super Clipboard
 
+현재 버전: **0.1.4**
+
+![Super Clipboard 앱 아이콘](assets/icon.png)
+
 복사한 **텍스트 · 이미지 · 파일**을 팔레트(보드)에 모아두고, 필요할 때 꺼내 쓰는 DAP(mydeskpet) 외부 플러그인.
 
 ## 기능
@@ -26,6 +30,7 @@
 plugin.yaml                      # manifest (권한 선언)
 dap_super_clipboard/plugin.mjs   # main-side activate(ctx) — 특권 작업 전담
 palette/index.html               # 팔레트 UI (sandbox, window.dapPalette 만 사용)
+assets/icon.png                  # DAP 래디얼 메뉴 앱 아이콘
 ```
 
 특권 작업(히스토리 읽기 · blob 저장 · paste · 드래그)은 전부 `plugin.mjs`(main)가 하고,
