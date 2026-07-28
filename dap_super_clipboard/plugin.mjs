@@ -193,6 +193,12 @@ export function activate(ctx) {
     actionId: "togglePalette",
     icon: "assets/clip.svg", // 플러그인 dir 기준 경로 — 호스트가 읽어 data URL로 래디얼에 표시
   });
+  ctx.trayMenu.addItem({
+    itemId: "palette",
+    label: "Super Clipboard",
+    actionId: "togglePalette",
+    showInContextMenu: true,
+  });
 
   // 트리거 2: 전역 단축키 — 호스트 정식 shortcut 기여 API로 등록한다.
   // 레거시 ctx.host.hotkey.register(globalShortcut 직행)는 코어 hotkey 재등록 때
