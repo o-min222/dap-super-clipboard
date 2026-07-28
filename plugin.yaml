@@ -1,6 +1,6 @@
 id: io.github.o-min222.super_clipboard
 name: Super Clipboard
-version: 0.1.3
+version: 0.1.4
 manifest_version: 2
 entry: dap_super_clipboard.plugin:activate
 author: o-min222

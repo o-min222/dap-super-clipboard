@@ -191,7 +191,7 @@ export function activate(ctx) {
     itemId: "palette",
     label: "클립보드",
     actionId: "togglePalette",
-    icon: "assets/clip.svg", // 플러그인 dir 기준 경로 — 호스트가 읽어 data URL로 래디얼에 표시
+    icon: "assets/icon.png", // 플러그인 dir 기준 경로 — 호스트가 읽어 data URL로 래디얼에 표시
   });
   ctx.trayMenu.addItem({
     itemId: "palette",
